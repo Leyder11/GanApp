@@ -31,8 +31,29 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
         return const [];
       }
 
-      final mapped = data
-          .whereType<Map<String, dynamic>>()
+      final cowLabelById = _requiresCowLabel(resourcePath)
+          ? await _loadCowLabelMap(accessToken)
+          : const <String, String>{};
+
+      final normalizedItems = data.whereType<Map<String, dynamic>>().map((item) {
+        if (!_requiresCowLabel(resourcePath)) {
+          return item;
+        }
+
+        final vacaId = item['vacaId']?.toString();
+        if (vacaId == null || vacaId.isEmpty) {
+          return item;
+        }
+
+        final identificador = cowLabelById[vacaId];
+        if (identificador == null || identificador.isEmpty) {
+          return item;
+        }
+
+        return {...item, 'vacaIdentificador': identificador};
+      }).toList();
+
+      final mapped = normalizedItems
           .map((item) => _mapRecord(resourcePath, item))
           .toList();
 
@@ -88,6 +109,27 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
       final record = _mapRecord(resourcePath, data);
       await cacheStore.upsert(resourcePath, record);
       return record;
+    } on ApiException catch (error) {
+      if (!_shouldQueueOffline(error)) {
+        rethrow;
+      }
+
+      final localId = _buildLocalId();
+      final offlinePayload = {...payload, 'id': localId};
+
+      await syncLocalStore.enqueue(
+        SyncAction(
+          table: _resourceToSyncCollection(resourcePath),
+          entityId: localId,
+          operation: 'create',
+          payload: offlinePayload,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      final record = _mapRecord(resourcePath, offlinePayload);
+      await cacheStore.upsert(resourcePath, record);
+      return record;
     } catch (_) {
       final localId = _buildLocalId();
       final offlinePayload = {...payload, 'id': localId};
@@ -133,6 +175,25 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
       final record = _mapRecord(resourcePath, data);
       await cacheStore.upsert(resourcePath, record);
       return record;
+    } on ApiException catch (error) {
+      if (!_shouldQueueOffline(error)) {
+        rethrow;
+      }
+
+      await syncLocalStore.enqueue(
+        SyncAction(
+          table: _resourceToSyncCollection(resourcePath),
+          entityId: id,
+          operation: 'update',
+          payload: payload,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      final offlinePayload = {...payload, 'id': id};
+      final record = _mapRecord(resourcePath, offlinePayload);
+      await cacheStore.upsert(resourcePath, record);
+      return record;
     } catch (_) {
       await syncLocalStore.enqueue(
         SyncAction(
@@ -161,6 +222,20 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
       await apiClient.deleteJson(
         '/api/v1/$resourcePath/$id',
         headers: {'Authorization': 'Bearer $accessToken'},
+      );
+    } on ApiException catch (error) {
+      if (!_shouldQueueOffline(error)) {
+        rethrow;
+      }
+
+      await syncLocalStore.enqueue(
+        SyncAction(
+          table: _resourceToSyncCollection(resourcePath),
+          entityId: id,
+          operation: 'delete',
+          payload: const {},
+          createdAt: DateTime.now(),
+        ),
       );
     } catch (_) {
       await syncLocalStore.enqueue(
@@ -224,6 +299,7 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
         final tipoEventoLabel = tipoEvento.isEmpty
             ? 'Evento'
             : tipoEvento[0].toUpperCase() + tipoEvento.substring(1);
+        final vacaLabel = item['vacaIdentificador']?.toString() ?? item['vacaId']?.toString() ?? '-';
         String detalle = 'Detalle reproductivo';
         if (tipoEvento == 'diagnostico') {
           detalle =
@@ -239,7 +315,7 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
         return ModuleRecord(
           id: id,
           title: tipoEventoLabel,
-          subtitle: 'Vaca: ${item['vacaId'] ?? '-'}',
+          subtitle: 'Vaca: $vacaLabel',
           footnote:
               'Fecha: ${item['fecha'] ?? '-'} • $detalle • FPP: ${item['fechaEstimadaParto'] ?? '-'}',
           rawData: item,
@@ -247,20 +323,22 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
       case 'prod-leche':
         final manana = (item['litrosManana'] ?? 0).toString();
         final tarde = (item['litrosTarde'] ?? 0).toString();
+        final vacaLabel = item['vacaIdentificador']?.toString() ?? item['vacaId']?.toString() ?? '-';
         return ModuleRecord(
           id: id,
-          title: 'Vaca ${item['vacaId'] ?? '-'}',
+          title: 'Vaca $vacaLabel',
           subtitle: 'Total: ${item['total'] ?? 0} L • M: $manana • T: $tarde',
           footnote: 'Fecha: ${item['fecha'] ?? '-'}',
           rawData: item,
         );
       case 'eventos-veterinarios':
         final categoria = item['categoria']?.toString() ?? 'observacion';
+        final vacaLabel = item['vacaIdentificador']?.toString() ?? item['vacaId']?.toString() ?? '-';
         return ModuleRecord(
           id: id,
           title: '${categoria[0].toUpperCase()}${categoria.substring(1)}',
           subtitle:
-              'Vaca: ${item['vacaId'] ?? '-'} • Producto: ${item['producto'] ?? '-'} • Dosis: ${item['dosis'] ?? '-'}',
+              'Vaca: $vacaLabel • Producto: ${item['producto'] ?? '-'} • Dosis: ${item['dosis'] ?? '-'}',
           footnote:
               'Fecha: ${item['fecha'] ?? '-'} • Responsable: ${item['responsable'] ?? item['veterinario'] ?? '-'}',
           rawData: item,
@@ -278,6 +356,40 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
 
   String _buildLocalId() {
     return 'local-${DateTime.now().microsecondsSinceEpoch}';
+  }
+
+  bool _shouldQueueOffline(ApiException error) {
+    return error.statusCode == 0 ||
+        error.statusCode == 408 ||
+        error.statusCode >= 500;
+  }
+
+  bool _requiresCowLabel(String resourcePath) {
+    return resourcePath == 'prod-leche' ||
+        resourcePath == 'eventos-reproductivos' ||
+        resourcePath == 'eventos-veterinarios';
+  }
+
+  Future<Map<String, String>> _loadCowLabelMap(String accessToken) async {
+    final response = await apiClient.getJson(
+      '/api/v1/vacas',
+      headers: {'Authorization': 'Bearer $accessToken'},
+    );
+
+    final data = response['data'];
+    if (data is! List) {
+      return const <String, String>{};
+    }
+
+    final map = <String, String>{};
+    for (final item in data.whereType<Map<String, dynamic>>()) {
+      final id = item['id']?.toString() ?? '';
+      final identificador = item['identificador']?.toString() ?? id;
+      if (id.isNotEmpty) {
+        map[id] = identificador;
+      }
+    }
+    return map;
   }
 
   String _resourceToSyncCollection(String resourcePath) {

@@ -48,6 +48,7 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
   String _milkTo = '';
   int _milkAverageDays = 7;
   String _sanitaryVacaFilter = '';
+  List<_CowOption> _cowFilterOptions = const [];
 
   @override
   void initState() {
@@ -92,12 +93,30 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
         accessToken: token,
       );
 
+      final cowFilterOptions = _needsCowSelection(widget.resourcePath)
+          ? await _loadCowOptions(token)
+          : const <_CowOption>[];
+
       if (!mounted) {
         return;
       }
 
       setState(() {
         _records = records;
+        _cowFilterOptions = cowFilterOptions;
+
+        if (_milkVacaFilter.isNotEmpty &&
+            !_cowFilterOptions.any((cow) => cow.id == _milkVacaFilter)) {
+          _milkVacaFilter = '';
+        }
+        if (_reproVacaFilter.isNotEmpty &&
+            !_cowFilterOptions.any((cow) => cow.id == _reproVacaFilter)) {
+          _reproVacaFilter = '';
+        }
+        if (_sanitaryVacaFilter.isNotEmpty &&
+            !_cowFilterOptions.any((cow) => cow.id == _sanitaryVacaFilter)) {
+          _sanitaryVacaFilter = '';
+        }
       });
     } catch (_) {
       if (!mounted) {
@@ -116,25 +135,60 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
   }
 
   Future<void> _createRecord() async {
+    final token = widget.authController.session?.accessToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    final cowOptions = _needsCowSelection(widget.resourcePath)
+        ? await _loadCowOptions(token)
+        : const <_CowOption>[];
+
+    if (_needsCowSelection(widget.resourcePath) && cowOptions.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Primero debes registrar al menos una vaca en Inventario de ganado.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => _RecordDialog(resourcePath: widget.resourcePath),
+      builder: (_) => _RecordDialog(
+        resourcePath: widget.resourcePath,
+        cowOptions: cowOptions,
+      ),
     );
 
     if (payload == null) {
       return;
     }
 
-    final token = widget.authController.session?.accessToken;
-    if (token == null || token.isEmpty) {
+    try {
+      await widget.repository.createRecord(
+        resourcePath: widget.resourcePath,
+        accessToken: token,
+        payload: payload,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo crear: $error')),
+      );
       return;
     }
-
-    await widget.repository.createRecord(
-      resourcePath: widget.resourcePath,
-      accessToken: token,
-      payload: payload,
-    );
     await _refreshSyncStatus();
 
     if (!mounted) {
@@ -148,11 +202,39 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
   }
 
   Future<void> _editRecord(ModuleRecord record) async {
+    final token = widget.authController.session?.accessToken;
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
+    final cowOptions = _needsCowSelection(widget.resourcePath)
+        ? await _loadCowOptions(token)
+        : const <_CowOption>[];
+
+    if (_needsCowSelection(widget.resourcePath) && cowOptions.isEmpty) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No hay vacas registradas para asociar este modulo.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     final payload = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => _RecordDialog(
         resourcePath: widget.resourcePath,
         initialData: record.rawData,
+        cowOptions: cowOptions,
       ),
     );
 
@@ -160,17 +242,22 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
       return;
     }
 
-    final token = widget.authController.session?.accessToken;
-    if (token == null || token.isEmpty) {
+    try {
+      await widget.repository.updateRecord(
+        resourcePath: widget.resourcePath,
+        accessToken: token,
+        id: record.id,
+        payload: payload,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo actualizar: $error')),
+      );
       return;
     }
-
-    await widget.repository.updateRecord(
-      resourcePath: widget.resourcePath,
-      accessToken: token,
-      id: record.id,
-      payload: payload,
-    );
     await _refreshSyncStatus();
 
     if (!mounted) {
@@ -273,6 +360,85 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
     );
   }
 
+  bool _needsCowSelection(String resourcePath) {
+    return resourcePath == 'prod-leche' ||
+        resourcePath == 'eventos-reproductivos' ||
+        resourcePath == 'eventos-veterinarios';
+  }
+
+  Future<List<_CowOption>> _loadCowOptions(String token) async {
+    try {
+      final cows = await widget.repository.loadRecords(
+        resourcePath: 'vacas',
+        accessToken: token,
+      );
+
+      return cows.map((record) {
+        final raw = record.rawData;
+        final sexoRaw = (raw['sexo']?.toString() ?? '').toLowerCase();
+        final sexo = sexoRaw == 'f' ? 'hembra' : sexoRaw == 'm' ? 'macho' : sexoRaw;
+        return _CowOption(
+          id: record.id,
+          identificador: raw['identificador']?.toString() ?? record.id,
+          sexo: sexo,
+        );
+      }).toList()
+        ..sort((a, b) => a.identificador.toLowerCase().compareTo(b.identificador.toLowerCase()));
+    } catch (_) {
+      return const <_CowOption>[];
+    }
+  }
+
+  List<DropdownMenuItem<String>> _cowFilterDropdownItems() {
+    final options = _cowFilterOptions
+        .map(
+          (cow) => DropdownMenuItem<String>(
+            value: cow.id,
+            child: Text('${cow.identificador} (${cow.sexo})'),
+          ),
+        )
+        .toList(growable: false);
+
+    return [
+      const DropdownMenuItem<String>(value: '', child: Text('Todas las vacas')),
+      ...options,
+    ];
+  }
+
+  Widget _buildCowFilterDropdown({
+    required String label,
+    required String value,
+    required ValueChanged<String> onChanged,
+  }) {
+    final items = _cowFilterDropdownItems();
+
+    if (_cowFilterOptions.isEmpty) {
+      return TextField(
+        onChanged: (raw) {
+          onChanged(raw.trim());
+        },
+        decoration: InputDecoration(
+          labelText: '$label (ID)',
+          prefixIcon: const Icon(Icons.search),
+        ),
+      );
+    }
+
+    final hasValue = items.any((item) => item.value == value);
+
+    return DropdownButtonFormField<String>(
+      initialValue: hasValue ? value : '',
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.pets_outlined),
+      ),
+      items: items,
+      onChanged: (selected) {
+        onChanged(selected ?? '');
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visibleRecords = _filteredRecords();
@@ -367,16 +533,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: TextField(
-                          onChanged: (value) {
+                        child: _buildCowFilterDropdown(
+                          label: 'Filtrar historial por vaca',
+                          value: _reproVacaFilter,
+                          onChanged: (selected) {
                             setState(() {
-                              _reproVacaFilter = value.trim().toLowerCase();
+                              _reproVacaFilter = selected;
                             });
                           },
-                          decoration: const InputDecoration(
-                            labelText: 'Filtrar historial por ID de vaca',
-                            prefixIcon: Icon(Icons.search),
-                          ),
                         ),
                       ),
                     ),
@@ -388,16 +552,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
                         padding: const EdgeInsets.all(12),
                         child: Column(
                           children: [
-                            TextField(
-                              onChanged: (value) {
+                            _buildCowFilterDropdown(
+                              label: 'Filtrar por vaca',
+                              value: _milkVacaFilter,
+                              onChanged: (selected) {
                                 setState(() {
-                                  _milkVacaFilter = value.trim().toLowerCase();
+                                  _milkVacaFilter = selected;
                                 });
                               },
-                              decoration: const InputDecoration(
-                                labelText: 'Filtrar por ID de vaca',
-                                prefixIcon: Icon(Icons.search),
-                              ),
                             ),
                             const SizedBox(height: 8),
                             Row(
@@ -466,17 +628,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
                     Card(
                       child: Padding(
                         padding: const EdgeInsets.all(12),
-                        child: TextField(
-                          onChanged: (value) {
+                        child: _buildCowFilterDropdown(
+                          label: 'Filtrar historial sanitario por vaca',
+                          value: _sanitaryVacaFilter,
+                          onChanged: (selected) {
                             setState(() {
-                              _sanitaryVacaFilter = value.trim().toLowerCase();
+                              _sanitaryVacaFilter = selected;
                             });
                           },
-                          decoration: const InputDecoration(
-                            labelText:
-                                'Filtrar historial sanitario por ID vaca',
-                            prefixIcon: Icon(Icons.search),
-                          ),
                         ),
                       ),
                     ),
@@ -552,11 +711,11 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
   List<ModuleRecord> _filteredRecords() {
     if (widget.resourcePath == 'prod-leche') {
       return _records.where((record) {
-        final vacaId = record.rawData['vacaId']?.toString().toLowerCase() ?? '';
+        final vacaId = record.rawData['vacaId']?.toString() ?? '';
         final fecha =
             record.rawData['fecha']?.toString().substring(0, 10) ?? '';
 
-        if (_milkVacaFilter.isNotEmpty && !vacaId.contains(_milkVacaFilter)) {
+        if (_milkVacaFilter.isNotEmpty && vacaId != _milkVacaFilter) {
           return false;
         }
         if (_milkFrom.isNotEmpty && fecha.compareTo(_milkFrom) < 0) {
@@ -575,8 +734,8 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
         return _records;
       }
       return _records.where((record) {
-        final vacaId = record.rawData['vacaId']?.toString().toLowerCase() ?? '';
-        return vacaId.contains(_sanitaryVacaFilter);
+        final vacaId = record.rawData['vacaId']?.toString() ?? '';
+        return vacaId == _sanitaryVacaFilter;
       }).toList();
     }
 
@@ -586,8 +745,8 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
       }
 
       return _records.where((record) {
-        final vacaId = record.rawData['vacaId']?.toString().toLowerCase() ?? '';
-        return vacaId.contains(_reproVacaFilter);
+        final vacaId = record.rawData['vacaId']?.toString() ?? '';
+        return vacaId == _reproVacaFilter;
       }).toList();
     }
 
@@ -634,9 +793,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
 }
 
 class _RecordDialog extends StatefulWidget {
-  const _RecordDialog({required this.resourcePath, this.initialData});
+  const _RecordDialog({
+    required this.resourcePath,
+    required this.cowOptions,
+    this.initialData,
+  });
 
   final String resourcePath;
+  final List<_CowOption> cowOptions;
   final Map<String, dynamic>? initialData;
 
   @override
@@ -656,6 +820,7 @@ class _RecordDialogState extends State<_RecordDialog> {
   String _reproTipoEvento = 'celo';
   String _reproResultado = 'pendiente';
   String _vetCategoria = 'observacion';
+  String? _selectedCowId;
 
   @override
   void initState() {
@@ -685,6 +850,7 @@ class _RecordDialogState extends State<_RecordDialog> {
         break;
       case 'eventos-reproductivos':
         _field1.text = data['vacaId']?.toString() ?? '';
+        _selectedCowId = _field1.text.trim().isEmpty ? null : _field1.text.trim();
         _reproTipoEvento = data['tipoEvento']?.toString() ?? 'celo';
         _field3.text = data['fecha']?.toString() ?? '';
         final tipoEvento = _reproTipoEvento;
@@ -699,6 +865,7 @@ class _RecordDialogState extends State<_RecordDialog> {
         break;
       case 'prod-leche':
         _field1.text = data['vacaId']?.toString() ?? '';
+        _selectedCowId = _field1.text.trim().isEmpty ? null : _field1.text.trim();
         _field2.text = data['fecha']?.toString() ?? '';
         _field3.text = data['litrosManana']?.toString() ?? '';
         _field4.text = data['litrosTarde']?.toString() ?? '';
@@ -706,6 +873,7 @@ class _RecordDialogState extends State<_RecordDialog> {
         break;
       case 'eventos-veterinarios':
         _field1.text = data['vacaId']?.toString() ?? '';
+        _selectedCowId = _field1.text.trim().isEmpty ? null : _field1.text.trim();
         _vetCategoria = data['categoria']?.toString() ?? 'observacion';
         _field2.text = data['producto']?.toString() ?? '';
         _field3.text = data['dosis']?.toString() ?? '';
@@ -812,6 +980,91 @@ class _RecordDialogState extends State<_RecordDialog> {
       default:
         return {'nombre': _field1.text.trim()};
     }
+  }
+
+  bool get _requiresFemaleCow {
+    return widget.resourcePath == 'prod-leche' ||
+        widget.resourcePath == 'eventos-reproductivos';
+  }
+
+  List<_CowOption> get _eligibleCowOptions {
+    if (!_requiresFemaleCow) {
+      return widget.cowOptions;
+    }
+    return widget.cowOptions
+        .where((cow) => cow.sexo == 'hembra')
+        .toList(growable: false);
+  }
+
+  List<DropdownMenuItem<String>> _cowDropdownItems() {
+    final eligible = _eligibleCowOptions;
+    final items = eligible
+        .map(
+          (cow) => DropdownMenuItem<String>(
+            value: cow.id,
+            child: Text('${cow.identificador} (${cow.sexo})'),
+          ),
+        )
+        .toList(growable: true);
+
+    if (_selectedCowId != null &&
+        _selectedCowId!.isNotEmpty &&
+        !eligible.any((cow) => cow.id == _selectedCowId)) {
+      items.insert(
+        0,
+        DropdownMenuItem<String>(
+          value: _selectedCowId,
+          child: Text('ID ${_selectedCowId!} (sin catalogar)'),
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  Widget _cowSelectorField() {
+    final items = _cowDropdownItems();
+
+    final noRegisteredCows = widget.cowOptions.isEmpty;
+    final noEligibleCows = !noRegisteredCows && items.isEmpty;
+
+    final hasSelected = _selectedCowId != null && _selectedCowId!.isNotEmpty;
+    final hasItem = hasSelected && items.any((item) => item.value == _selectedCowId);
+
+    return DropdownButtonFormField<String>(
+      initialValue: hasItem ? _selectedCowId : null,
+      decoration: InputDecoration(
+        labelText: _requiresFemaleCow
+            ? 'Vaca (solo hembras)'
+            : 'Vaca registrada',
+        helperText: noRegisteredCows
+            ? 'No hay vacas registradas. Crea una en Inventario.'
+            : noEligibleCows
+            ? 'No hay vacas hembras disponibles para este modulo.'
+            : null,
+      ),
+      items: noRegisteredCows || noEligibleCows ? const [] : items,
+      onChanged: noRegisteredCows || noEligibleCows
+          ? null
+          : (value) {
+        setState(() {
+          _selectedCowId = value;
+          _field1.text = value ?? '';
+        });
+      },
+      validator: (value) {
+        if (noRegisteredCows) {
+          return 'Registra una vaca primero';
+        }
+        if (noEligibleCows) {
+          return 'No hay vacas validas para seleccionar';
+        }
+        if (value == null || value.trim().isEmpty) {
+          return 'Selecciona una vaca';
+        }
+        return null;
+      },
+    );
   }
 
   Widget _dateField({
@@ -935,12 +1188,7 @@ class _RecordDialogState extends State<_RecordDialog> {
                 const SizedBox(height: 10),
                 _dateField(controller: _field5, label: 'Fecha nacimiento'),
               ] else if (widget.resourcePath == 'eventos-reproductivos') ...[
-                TextFormField(
-                  controller: _field1,
-                  decoration: const InputDecoration(labelText: 'ID Vaca'),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty) ? 'Campo requerido' : null,
-                ),
+                _cowSelectorField(),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   initialValue: _reproTipoEvento,
@@ -994,12 +1242,7 @@ class _RecordDialogState extends State<_RecordDialog> {
                     ),
                   ),
               ] else if (widget.resourcePath == 'eventos-veterinarios') ...[
-                TextFormField(
-                  controller: _field1,
-                  decoration: const InputDecoration(labelText: 'ID Vaca'),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty) ? 'Campo requerido' : null,
-                ),
+                _cowSelectorField(),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   initialValue: _vetCategoria,
@@ -1037,12 +1280,7 @@ class _RecordDialogState extends State<_RecordDialog> {
                 const SizedBox(height: 10),
                 _dateField(controller: _field5, label: 'Fecha evento'),
               ] else if (widget.resourcePath == 'prod-leche') ...[
-                TextFormField(
-                  controller: _field1,
-                  decoration: const InputDecoration(labelText: 'ID Vaca'),
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty) ? 'Campo requerido' : null,
-                ),
+                _cowSelectorField(),
                 const SizedBox(height: 10),
                 _dateField(controller: _field2, label: 'Fecha'),
                 const SizedBox(height: 10),
@@ -1080,6 +1318,18 @@ class _RecordDialogState extends State<_RecordDialog> {
       ],
     );
   }
+}
+
+class _CowOption {
+  const _CowOption({
+    required this.id,
+    required this.identificador,
+    required this.sexo,
+  });
+
+  final String id;
+  final String identificador;
+  final String sexo;
 }
 
 class _InventorySearchAndFilters extends StatelessWidget {

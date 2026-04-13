@@ -49,6 +49,24 @@ const syncCollectionMap = {
   historial_crecimiento: COLLECTIONS.historialCrecimiento,
 } as const;
 
+function needsVacaValidation(collection: keyof typeof syncCollectionMap): boolean {
+  return (
+    collection === "prod_leche" ||
+    collection === "eventos_reproductivos" ||
+    collection === "eventos_veterinarios" ||
+    collection === "historial_crecimiento"
+  );
+}
+
+async function isOwnedActiveVaca(uid: string, vacaId: string): Promise<boolean> {
+  const vacaDoc = await db.collection(COLLECTIONS.vacas).doc(vacaId).get();
+  if (!vacaDoc.exists) {
+    return false;
+  }
+  const data = vacaDoc.data();
+  return !!data && data.ownerUid === uid && data.isDeleted !== true;
+}
+
 syncRouter.post("/push", async (req, res) => {
   const uid = req.user?.uid;
   if (!uid) {
@@ -66,11 +84,51 @@ syncRouter.post("/push", async (req, res) => {
   for (const action of parsed.data.actions) {
     const collectionName = syncCollectionMap[action.collection];
     const docRef = db.collection(collectionName).doc(action.id);
+    const payload = (action.payload ?? {}) as Record<string, unknown>;
+    const payloadVacaId = typeof payload.vacaId === "string" ? payload.vacaId.trim() : "";
 
     try {
+      if (needsVacaValidation(action.collection)) {
+        if (action.operation === "create") {
+          if (!payloadVacaId) {
+            rejected.push({
+              collection: action.collection,
+              operation: action.operation,
+              id: action.id,
+              reason: "vacaId es obligatorio para este modulo.",
+            });
+            continue;
+          }
+
+          const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
+          if (!validVaca) {
+            rejected.push({
+              collection: action.collection,
+              operation: action.operation,
+              id: action.id,
+              reason: "La vaca referenciada no existe o no pertenece al usuario.",
+            });
+            continue;
+          }
+        }
+
+        if (action.operation === "update" && payloadVacaId) {
+          const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
+          if (!validVaca) {
+            rejected.push({
+              collection: action.collection,
+              operation: action.operation,
+              id: action.id,
+              reason: "La vaca referenciada no existe o no pertenece al usuario.",
+            });
+            continue;
+          }
+        }
+      }
+
       if (action.operation === "create") {
         await docRef.set({
-          ...(action.payload ?? {}),
+          ...payload,
           ownerUid: uid,
           isDeleted: false,
           deletedAt: null,
@@ -95,7 +153,7 @@ syncRouter.post("/push", async (req, res) => {
 
       if (action.operation === "update") {
         await docRef.set({
-          ...(action.payload ?? {}),
+          ...payload,
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
 
