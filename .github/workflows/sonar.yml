@@ -26,5 +26,5 @@ jobs:
           SONAR_HOST_URL: https://sonarcloud.io
         with:
           args: >
-            -Dsonar.sources=lib,functions
+            -Dsonar.sources=lib
             -Dsonar.exclusions=**/*.g.dart,**/*.freezed.dart,**/*.mocks.dart
