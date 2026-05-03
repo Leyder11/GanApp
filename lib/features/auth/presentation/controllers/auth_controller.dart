@@ -23,6 +23,13 @@ class AuthController extends ChangeNotifier {
     notifyListeners();
 
     _session = await _repository.getCurrentSession();
+    if (_session != null) {
+      final isValid = await _repository.validateSession(_session!);
+      if (!isValid) {
+        await _repository.signOut();
+        _session = null;
+      }
+    }
 
     _isLoading = false;
     notifyListeners();

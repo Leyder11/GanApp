@@ -15,6 +15,21 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<bool> validateSession(UserSession session) async {
+    try {
+      await apiClient.getJson(
+        '/api/v1/users/me',
+        headers: {'Authorization': 'Bearer ${session.accessToken}'},
+      );
+      return true;
+    } on ApiException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
   Future<void> forgotPassword({required String email}) {
     return apiClient.postJson(
       '/api/v1/auth/forgot-password',

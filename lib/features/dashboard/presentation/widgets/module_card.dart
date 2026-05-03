@@ -23,10 +23,10 @@ class ModuleCard extends StatelessWidget {
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceSoft,
+                  gradient: AppColors.heroGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(module.icon, color: AppColors.primary),
+                child: Icon(module.icon, color: Colors.white),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -41,13 +41,13 @@ class ModuleCard extends StatelessWidget {
                     Text(
                       module.description,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.deep.withValues(alpha: 0.72),
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppColors.deep),
+              Icon(module.icon, color: AppColors.accent),
             ],
           ),
         ),

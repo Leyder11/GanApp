@@ -7,52 +7,60 @@ class AppTheme {
   const AppTheme._();
 
   static ThemeData light() {
-    final textTheme = GoogleFonts.notoSansTextTheme();
+    final textTheme = GoogleFonts.dmSansTextTheme(
+      ThemeData.dark(useMaterial3: true).textTheme,
+    );
 
     final colorScheme = ColorScheme.fromSeed(
+      brightness: Brightness.dark,
       seedColor: AppColors.primary,
       primary: AppColors.primary,
       secondary: AppColors.accent,
-      surface: Colors.white,
+      surface: AppColors.panel,
     );
 
     return ThemeData(
+      useMaterial3: true,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: AppColors.surfaceSoft,
+      scaffoldBackgroundColor: AppColors.background,
       textTheme: textTheme.copyWith(
         headlineMedium: textTheme.headlineMedium?.copyWith(
-          color: AppColors.deep,
+          color: AppColors.textMain,
           fontWeight: FontWeight.w700,
         ),
         titleLarge: textTheme.titleLarge?.copyWith(
-          color: AppColors.deep,
+          color: AppColors.textMain,
           fontWeight: FontWeight.w700,
         ),
         bodyLarge: textTheme.bodyLarge?.copyWith(color: AppColors.textMain),
+        bodyMedium: textTheme.bodyMedium?.copyWith(color: AppColors.textMuted),
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.deep,
+        backgroundColor: Colors.transparent,
+        foregroundColor: AppColors.textMain,
         elevation: 0,
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.panel,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: AppColors.deep.withValues(alpha: 0.08)),
+          side: const BorderSide(color: AppColors.stroke),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.panelSoft,
+        labelStyle: const TextStyle(color: AppColors.textMuted),
+        hintStyle: const TextStyle(color: AppColors.textMuted),
+        prefixIconColor: AppColors.textMuted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.deep.withValues(alpha: 0.10)),
+          borderSide: const BorderSide(color: AppColors.stroke),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.deep.withValues(alpha: 0.10)),
+          borderSide: const BorderSide(color: AppColors.stroke),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(14)),
@@ -71,7 +79,13 @@ class AppTheme {
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.panelSoft,
+        contentTextStyle: const TextStyle(color: AppColors.textMain),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

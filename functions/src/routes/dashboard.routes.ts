@@ -69,6 +69,7 @@ dashboardRouter.get("/summary", async (req, res) => {
     const today = new Date();
     const hoyIso = today.toISOString().slice(0, 10);
     const todayStart = new Date(`${hoyIso}T00:00:00.000Z`);
+    const millisPerDay = 1000 * 60 * 60 * 24;
     const alertLimit = new Date(todayStart);
     alertLimit.setUTCDate(alertLimit.getUTCDate() + 15);
 
@@ -120,8 +121,6 @@ dashboardRouter.get("/summary", async (req, res) => {
     const vacasGestantes = new Set<string>();
     const alertsProximoParto: Array<Record<string, unknown>> = [];
     const partosProyectados30: Array<Record<string, unknown>> = [];
-
-    const millisPerDay = 1000 * 60 * 60 * 24;
 
     for (const [vacaId, eventos] of eventosPorVaca.entries()) {
       const ordered = [...eventos].sort((a, b) => String(a.fecha ?? "").localeCompare(String(b.fecha ?? "")));

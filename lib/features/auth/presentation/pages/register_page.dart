@@ -68,162 +68,205 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              child: ListView(
-                children: [
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Volver'),
-                    ),
+      body: Stack(
+        children: [
+          const _AuthBackdrop(),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
                   ),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(22),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Crear cuenta',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Empieza a gestionar tu finca ahora.',
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: AppColors.deep.withValues(
-                                      alpha: 0.75,
-                                    ),
-                                  ),
-                            ),
-                            const SizedBox(height: 22),
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Nombre',
-                                prefixIcon: Icon(Icons.person_outline),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Ingresa tu nombre';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _farmController,
-                              decoration: const InputDecoration(
-                                labelText: 'Nombre de finca (opcional)',
-                                prefixIcon: Icon(Icons.agriculture_outlined),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                labelText: 'Correo electronico',
-                                prefixIcon: Icon(Icons.mail_outline),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Ingresa tu correo';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Correo invalido';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Contraseña',
-                                prefixIcon: Icon(Icons.lock_outline),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Ingresa una contraseña';
-                                }
-                                if (value.length < 8) {
-                                  return 'Minimo 8 caracteres';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _confirmPasswordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Confirmar contraseña',
-                                prefixIcon: Icon(Icons.lock_reset_outlined),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Confirma tu contraseña';
-                                }
-                                if (value != _passwordController.text) {
-                                  return 'Las contraseñas no coinciden';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                            AnimatedBuilder(
-                              animation: widget.authController,
-                              builder: (context, _) {
-                                return ElevatedButton(
-                                  onPressed: widget.authController.isLoading
-                                      ? null
-                                      : _onSubmit,
-                                  child: widget.authController.isLoading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text('Crear cuenta'),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            Center(
-                              child: TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                child: const Text(
-                                  '¿Ya tienes cuenta? Inicia sesion',
-                                ),
-                              ),
-                            ),
-                          ],
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.arrow_back),
+                          label: const Text('Volver'),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(22),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Crear cuenta',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Configura tu perfil para empezar el control de la finca con un flujo ordenado.',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(color: AppColors.textMuted),
+                                ),
+                                const SizedBox(height: 22),
+                                TextFormField(
+                                  controller: _nameController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nombre',
+                                    prefixIcon: Icon(Icons.person_outline),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Ingresa tu nombre';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _farmController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Nombre de finca (opcional)',
+                                    prefixIcon: Icon(Icons.agriculture_outlined),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Correo electronico',
+                                    prefixIcon: Icon(Icons.mail_outline),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Ingresa tu correo';
+                                    }
+                                    if (!value.contains('@')) {
+                                      return 'Correo invalido';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Contrasena',
+                                    prefixIcon: Icon(Icons.lock_outline),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Ingresa una contrasena';
+                                    }
+                                    if (value.length < 8) {
+                                      return 'Minimo 8 caracteres';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _confirmPasswordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Confirmar contrasena',
+                                    prefixIcon: Icon(Icons.lock_reset_outlined),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Confirma tu contrasena';
+                                    }
+                                    if (value != _passwordController.text) {
+                                      return 'Las contrasenas no coinciden';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+                                AnimatedBuilder(
+                                  animation: widget.authController,
+                                  builder: (context, _) {
+                                    return ElevatedButton(
+                                      onPressed: widget.authController.isLoading
+                                          ? null
+                                          : _onSubmit,
+                                      child: widget.authController.isLoading
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text('Crear cuenta'),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+                                Center(
+                                  child: TextButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    child: const Text(
+                                      'Ya tienes cuenta? Inicia sesion',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthBackdrop extends StatelessWidget {
+  const _AuthBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(gradient: AppColors.appGradient),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -80,
+            right: -30,
+            child: Container(
+              width: 230,
+              height: 230,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.18),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -110,
+            left: -30,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accent.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

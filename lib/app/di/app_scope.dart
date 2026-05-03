@@ -51,6 +51,9 @@ class AppScope extends InheritedWidget {
 }
 
 class AppDependencies {
+  static const String _prodBaseUrl =
+      'https://api-ypkhqnqxha-uc.a.run.app';
+
   AppDependencies._({
     required this.authController,
     required this.dashboardController,
@@ -120,6 +123,10 @@ class AppDependencies {
   }
 
   static String _defaultBaseUrl() {
+    if (kReleaseMode) {
+      return _prodBaseUrl;
+    }
+
     if (kIsWeb) {
       return 'http://127.0.0.1:5001/ganapp-d451b/us-central1/api';
     }

@@ -11,6 +11,7 @@ abstract class AuthRepository {
   });
 
   Future<UserSession?> getCurrentSession();
+  Future<bool> validateSession(UserSession session);
   Future<void> forgotPassword({required String email});
   Future<void> signOut();
 }

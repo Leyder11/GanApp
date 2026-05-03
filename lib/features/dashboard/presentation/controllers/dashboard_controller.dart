@@ -141,13 +141,15 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      final online = await syncService.isServerReachable();
+      _isOnline = online;
+
       final results = await Future.wait<dynamic>([
         dashboardRepository.getSummary(accessToken: token),
         userProfileRepository.getMyProfile(accessToken: token),
         userProfileRepository.getMyFarms(accessToken: token),
         syncService.pendingActionsCount(),
         syncService.lastSyncAt(),
-        syncService.isServerReachable(),
       ]);
 
       _summary = results[0] as DashboardSummary;
@@ -157,11 +159,17 @@ class DashboardController extends ChangeNotifier {
       _farms = results[2] as List<Farm>;
       _pendingActions = results[3] as int;
       _lastSyncAt = results[4] as String?;
-      _isOnline = results[5] as bool;
       _wasReachable = _isOnline;
       _ensureAutoSyncLoop();
     } catch (_) {
+      _summary = null;
       _errorMessage = 'No se pudo cargar el resumen.';
+
+      try {
+        _isOnline = await syncService.isServerReachable();
+        _pendingActions = await syncService.pendingActionsCount();
+        _lastSyncAt = await syncService.lastSyncAt();
+      } catch (_) {}
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -110,149 +110,207 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              child: ListView(
-                children: [
-                  const SizedBox(height: 16),
-                  Center(
-                    child: Container(
-                      width: 78,
-                      height: 78,
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.agriculture_rounded,
-                        color: AppColors.primary,
-                        size: 38,
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          const _AuthBackdrop(),
+          SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 18,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'GanApp',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(22),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Iniciar sesion',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Controla tu finca sin enredos.',
-                              style: Theme.of(context).textTheme.bodyLarge
-                                  ?.copyWith(
-                                    color: AppColors.deep.withValues(
-                                      alpha: 0.75,
-                                    ),
-                                  ),
-                            ),
-                            const SizedBox(height: 24),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: const InputDecoration(
-                                labelText: 'Correo electronico',
-                                prefixIcon: Icon(Icons.mail_outline),
+                  child: ListView(
+                    children: [
+                      const SizedBox(height: 20),
+                      Center(
+                        child: Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            gradient: AppColors.heroGradient,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.35),
+                                blurRadius: 26,
+                                offset: const Offset(0, 12),
                               ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Ingresa tu correo';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Correo invalido';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Contraseña',
-                                prefixIcon: Icon(Icons.lock_outline),
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Ingresa tu contraseña';
-                                }
-                                if (value.length < 8) {
-                                  return 'Minimo 8 caracteres';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 14),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: widget.authController.isLoading
-                                    ? null
-                                    : _onForgotPassword,
-                                child: const Text('Recuperar contraseña'),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            AnimatedBuilder(
-                              animation: widget.authController,
-                              builder: (context, _) {
-                                return ElevatedButton(
-                                  onPressed: widget.authController.isLoading
-                                      ? null
-                                      : _onSubmit,
-                                  child: widget.authController.isLoading
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Text('Entrar'),
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            Center(
-                              child: TextButton(
-                                onPressed: widget.authController.isLoading
-                                    ? null
-                                    : () => Navigator.of(
-                                        context,
-                                      ).pushNamed(AppRoutes.register),
-                                child: const Text(
-                                  '¿No tienes cuenta? Registrate',
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.agriculture_rounded,
+                            color: Colors.white,
+                            size: 38,
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'GanApp',
+                        style: Theme.of(context).textTheme.headlineMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Gestion inteligente para tu finca',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textMuted,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(22),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Iniciar sesion',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Accede a tus datos de produccion, salud y reproduccion en segundos.',
+                                  style: Theme.of(context).textTheme.bodyLarge
+                                      ?.copyWith(color: AppColors.textMuted),
+                                ),
+                                const SizedBox(height: 24),
+                                TextFormField(
+                                  controller: _emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Correo electronico',
+                                    prefixIcon: Icon(Icons.mail_outline),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Ingresa tu correo';
+                                    }
+                                    if (!value.contains('@')) {
+                                      return 'Correo invalido';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Contrasena',
+                                    prefixIcon: Icon(Icons.lock_outline),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Ingresa tu contrasena';
+                                    }
+                                    if (value.length < 8) {
+                                      return 'Minimo 8 caracteres';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 14),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TextButton(
+                                    onPressed: widget.authController.isLoading
+                                        ? null
+                                        : _onForgotPassword,
+                                    child: const Text('Recuperar contrasena'),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                AnimatedBuilder(
+                                  animation: widget.authController,
+                                  builder: (context, _) {
+                                    return ElevatedButton(
+                                      onPressed: widget.authController.isLoading
+                                          ? null
+                                          : _onSubmit,
+                                      child: widget.authController.isLoading
+                                          ? const SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : const Text('Entrar'),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 10),
+                                Center(
+                                  child: TextButton(
+                                    onPressed: widget.authController.isLoading
+                                        ? null
+                                        : () => Navigator.of(
+                                            context,
+                                          ).pushNamed(AppRoutes.register),
+                                    child: const Text(
+                                      'No tienes cuenta? Registrate',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthBackdrop extends StatelessWidget {
+  const _AuthBackdrop();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(gradient: AppColors.appGradient),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -100,
+            left: -60,
+            child: Container(
+              width: 220,
+              height: 220,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.18),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -120,
+            right: -40,
+            child: Container(
+              width: 260,
+              height: 260,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accent.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
