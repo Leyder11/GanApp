@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -84,16 +85,22 @@ class ModuleCacheStore {
   }
 
   Future<void> upsert(String resourcePath, ModuleRecord record) async {
-    final db = await _open();
-    await db.insert('module_records', {
-      'resource_path': resourcePath,
-      'id': record.id,
-      'title': record.title,
-      'subtitle': record.subtitle,
-      'footnote': record.footnote,
-      'raw_data': jsonEncode(record.rawData),
-      'updated_at': DateTime.now().toIso8601String(),
-    }, conflictAlgorithm: ConflictAlgorithm.replace);
+    try {
+      final db = await _open();
+      await db.insert('module_records', {
+        'resource_path': resourcePath,
+        'id': record.id,
+        'title': record.title,
+        'subtitle': record.subtitle,
+        'footnote': record.footnote,
+        'raw_data': jsonEncode(record.rawData),
+        'updated_at': DateTime.now().toIso8601String(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      debugPrint('[CACHE] Upserted: $resourcePath/${record.id}');
+    } catch (e) {
+      debugPrint('[CACHE] Upsert error for $resourcePath/${record.id}: $e');
+      rethrow;
+    }
   }
 
   Future<void> remove(String resourcePath, String id) async {
