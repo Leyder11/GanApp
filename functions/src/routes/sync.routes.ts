@@ -76,8 +76,11 @@ syncRouter.post("/push", async (req, res) => {
 
     const parsed = syncPushSchema.safeParse(req.body);
     if (!parsed.success) {
+      console.error("Sync push schema validation failed:", parsed.error);
       return errorResponse(res, 400, "INVALID_PAYLOAD", "Payload de sincronizacion invalido.", parsed.error.flatten());
     }
+
+    console.log(`[SYNC-PUSH] User ${uid} pushing ${parsed.data.actions.length} actions`);
 
     const applied: Array<{ collection: string; operation: string; id: string }> = [];
     const rejected: Array<{ collection: string; operation: string; id: string; reason: string }> = [];
@@ -88,10 +91,13 @@ syncRouter.post("/push", async (req, res) => {
       const payload = (action.payload ?? {}) as Record<string, unknown>;
       const payloadVacaId = typeof payload.vacaId === "string" ? payload.vacaId.trim() : "";
 
+      console.log(`[SYNC-PUSH] Processing action: collection=${action.collection}, operation=${action.operation}, id=${action.id}`);
+
       try {
         if (needsVacaValidation(action.collection)) {
           if (action.operation === "create") {
             if (!payloadVacaId) {
+              console.warn(`[SYNC-PUSH] Rejected: missing vacaId for ${action.id}`);
               rejected.push({
                 collection: action.collection,
                 operation: action.operation,
@@ -103,6 +109,7 @@ syncRouter.post("/push", async (req, res) => {
 
             const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
             if (!validVaca) {
+              console.warn(`[SYNC-PUSH] Rejected: invalid vaca ${payloadVacaId} for ${action.id}`);
               rejected.push({
                 collection: action.collection,
                 operation: action.operation,
@@ -116,6 +123,7 @@ syncRouter.post("/push", async (req, res) => {
           if (action.operation === "update" && payloadVacaId) {
             const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
             if (!validVaca) {
+              console.warn(`[SYNC-PUSH] Rejected: invalid vaca ${payloadVacaId} for update ${action.id}`);
               rejected.push({
                 collection: action.collection,
                 operation: action.operation,
@@ -137,12 +145,14 @@ syncRouter.post("/push", async (req, res) => {
             updatedAt: FieldValue.serverTimestamp(),
           }, { merge: true });
 
+          console.log(`[SYNC-PUSH] Applied create for ${action.id}`);
           applied.push({ collection: action.collection, operation: action.operation, id: action.id });
           continue;
         }
 
         const existingDoc = await docRef.get();
         if (!existingDoc.exists || existingDoc.data()?.ownerUid !== uid) {
+          console.warn(`[SYNC-PUSH] Rejected: doc not found or no permission for ${action.id}`);
           rejected.push({
             collection: action.collection,
             operation: action.operation,
@@ -158,6 +168,7 @@ syncRouter.post("/push", async (req, res) => {
             updatedAt: FieldValue.serverTimestamp(),
           }, { merge: true });
 
+          console.log(`[SYNC-PUSH] Applied update for ${action.id}`);
           applied.push({ collection: action.collection, operation: action.operation, id: action.id });
           continue;
         }
@@ -167,8 +178,10 @@ syncRouter.post("/push", async (req, res) => {
           deletedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });
+        console.log(`[SYNC-PUSH] Applied delete for ${action.id}`);
         applied.push({ collection: action.collection, operation: action.operation, id: action.id });
       } catch (_error) {
+        console.error(`[SYNC-PUSH] Action error for ${action.id}:`, _error);
         rejected.push({
           collection: action.collection,
           operation: action.operation,
@@ -178,6 +191,7 @@ syncRouter.post("/push", async (req, res) => {
       }
     }
 
+    console.log(`[SYNC-PUSH] Complete: ${applied.length} applied, ${rejected.length} rejected`);
     return successResponse(res, {
       appliedCount: applied.length,
       rejectedCount: rejected.length,
@@ -185,7 +199,7 @@ syncRouter.post("/push", async (req, res) => {
       rejected,
     });
   } catch (error) {
-    console.error("Sync push error:", error);
+    console.error("[SYNC-PUSH] Endpoint error:", error);
     return errorResponse(res, 500, "INTERNAL_ERROR", "Error al procesar sincronizacion.", { error: String(error) });
   }
 });
