@@ -199,6 +199,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
       const SnackBar(content: Text('Registro creado (online u offline).')),
     );
     await _load();
+    
+    // Recargar eventos en el dashboard
+    if (mounted) {
+      try {
+        final dashboardController = AppScope.of(context).dashboardController;
+        await dashboardController.reloadEvents();
+      } catch (_) {}
+    }
   }
 
   Future<void> _editRecord(ModuleRecord record) async {
@@ -268,6 +276,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
       const SnackBar(content: Text('Registro actualizado (online u offline).')),
     );
     await _load();
+    
+    // Recargar eventos en el dashboard
+    if (mounted) {
+      try {
+        final dashboardController = AppScope.of(context).dashboardController;
+        await dashboardController.reloadEvents();
+      } catch (_) {}
+    }
   }
 
   Future<void> _deleteRecord(ModuleRecord record) async {
@@ -313,6 +329,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
       const SnackBar(content: Text('Registro eliminado (online u offline).')),
     );
     await _load();
+    
+    // Recargar eventos en el dashboard
+    if (mounted) {
+      try {
+        final dashboardController = AppScope.of(context).dashboardController;
+        await dashboardController.reloadEvents();
+      } catch (_) {}
+    }
   }
 
   Future<void> _showAnimalFullRecord(ModuleRecord record) async {

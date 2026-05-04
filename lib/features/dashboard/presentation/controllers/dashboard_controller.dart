@@ -67,6 +67,10 @@ class DashboardController extends ChangeNotifier {
   List<TrendPoint> get tendencia7Dias => _summary?.tendencia7Dias ?? const [];
   List<TrendPoint> get tendencia30Dias => _summary?.tendencia30Dias ?? const [];
 
+  Future<void> reloadEvents() async {
+    await loadSummary();
+  }
+
   List<ModuleItem> get modules => const [
     ModuleItem(
       icon: Icons.pets_outlined,
@@ -194,8 +198,9 @@ class DashboardController extends ChangeNotifier {
       await loadSummary();
 
       return 'Sync completa. Subidos: ${pushed.pushed}, bajados: ${pulled.pulled}';
-    } catch (_) {
-      return 'No se pudo sincronizar.';
+    } catch (e) {
+      debugPrint('SyncError: ${e.toString()}');
+      return 'No se pudo sincronizar: ${e.toString()}';
     } finally {
       _isSyncing = false;
       notifyListeners();
