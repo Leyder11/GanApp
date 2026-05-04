@@ -165,9 +165,11 @@ class DashboardController extends ChangeNotifier {
       _lastSyncAt = results[4] as String?;
       _wasReachable = _isOnline;
       _ensureAutoSyncLoop();
-    } catch (_) {
-      _summary = null;
-      _errorMessage = 'No se pudo cargar el resumen.';
+    } catch (e) {
+      debugPrint('[Dashboard] Error loading summary: $e');
+      // NO limpiar _summary, mantener datos anteriores (offline-first)
+      // _summary = null;
+      // _errorMessage = 'No se pudo cargar el resumen.';
 
       try {
         final online = await syncService.isServerReachable();
