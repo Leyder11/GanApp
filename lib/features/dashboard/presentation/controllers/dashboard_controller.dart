@@ -170,9 +170,12 @@ class DashboardController extends ChangeNotifier {
       _errorMessage = 'No se pudo cargar el resumen.';
 
       try {
-        _isOnline = await syncService.isServerReachable();
+        final online = await syncService.isServerReachable();
+        _isOnline = online;
         _pendingActions = await syncService.pendingActionsCount();
         _lastSyncAt = await syncService.lastSyncAt();
+        _wasReachable = _isOnline;
+        _ensureAutoSyncLoop();
       } catch (_) {}
     } finally {
       _isLoading = false;
@@ -190,6 +193,15 @@ class DashboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Verificar conectividad primero
+      final isReachable = await syncService.isServerReachable();
+      _isOnline = isReachable;
+      notifyListeners();
+
+      if (!isReachable) {
+        return 'Sin conexion a internet. Los cambios se sincronizaran cuando haya conexion.';
+      }
+
       final pushed = await syncService.pushPendingActions(accessToken: token);
       final pulled = await syncService.pullChanges(accessToken: token);
       _pendingActions = await syncService.pendingActionsCount();
@@ -200,6 +212,7 @@ class DashboardController extends ChangeNotifier {
       return 'Sync completa. Subidos: ${pushed.pushed}, bajados: ${pulled.pulled}';
     } catch (e) {
       debugPrint('SyncError: ${e.toString()}');
+      _isOnline = await syncService.isServerReachable();
       return 'No se pudo sincronizar: ${e.toString()}';
     } finally {
       _isSyncing = false;
