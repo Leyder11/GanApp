@@ -192,6 +192,14 @@ syncRouter.post("/push", async (req, res) => {
     }
 
     console.log(`[SYNC-PUSH] Complete: ${applied.length} applied, ${rejected.length} rejected`);
+    
+    // Si hay rechazados, no limpiar las acciones pending
+    // El cliente debería mostrar error y el usuario puede revisar
+    if (rejected.length > 0) {
+      console.warn(`[SYNC-PUSH] WARNING: ${rejected.length} actions rejected. Not clearing pending actions.`);
+      console.warn(`[SYNC-PUSH] Rejected details:`, JSON.stringify(rejected, null, 2));
+    }
+    
     return successResponse(res, {
       appliedCount: applied.length,
       rejectedCount: rejected.length,

@@ -416,6 +416,12 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> with WidgetsBindi
         accessToken: token,
       );
 
+      if (cows.isEmpty) {
+        debugPrint('[COW-OPTIONS] No cows found (empty cache or server)');
+      } else {
+        debugPrint('[COW-OPTIONS] Loaded ${cows.length} cows from server/cache');
+      }
+
       return cows.map((record) {
         final raw = record.rawData;
         final sexoRaw = (raw['sexo']?.toString() ?? '').toLowerCase();
@@ -427,7 +433,8 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> with WidgetsBindi
         );
       }).toList()
         ..sort((a, b) => a.identificador.toLowerCase().compareTo(b.identificador.toLowerCase()));
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[COW-OPTIONS] Error loading cows: $e');
       return const <_CowOption>[];
     }
   }
