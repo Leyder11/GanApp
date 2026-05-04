@@ -22,7 +22,16 @@ class AuthRepositoryImpl implements AuthRepository {
         headers: {'Authorization': 'Bearer ${session.accessToken}'},
       );
       return true;
-    } on ApiException {
+    } on ApiException catch (error) {
+      // Si no hay conexión (0) o timeout (408), confiar en sesión guardada (offline mode)
+      if (error.statusCode == 0 || error.statusCode == 408) {
+        return true;
+      }
+      // Si token es inválido (401), rechazar sesión
+      if (error.statusCode == 401) {
+        return false;
+      }
+      // Otros errores: rechazar sesión
       return false;
     } catch (_) {
       return false;

@@ -68,119 +68,124 @@ async function isOwnedActiveVaca(uid: string, vacaId: string): Promise<boolean> 
 }
 
 syncRouter.post("/push", async (req, res) => {
-  const uid = req.user?.uid;
-  if (!uid) {
-    return errorResponse(res, 401, "UNAUTHORIZED", "Usuario no autenticado.");
-  }
+  try {
+    const uid = req.user?.uid;
+    if (!uid) {
+      return errorResponse(res, 401, "UNAUTHORIZED", "Usuario no autenticado.");
+    }
 
-  const parsed = syncPushSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return errorResponse(res, 400, "INVALID_PAYLOAD", "Payload de sincronizacion invalido.", parsed.error.flatten());
-  }
+    const parsed = syncPushSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return errorResponse(res, 400, "INVALID_PAYLOAD", "Payload de sincronizacion invalido.", parsed.error.flatten());
+    }
 
-  const applied: Array<{ collection: string; operation: string; id: string }> = [];
-  const rejected: Array<{ collection: string; operation: string; id: string; reason: string }> = [];
+    const applied: Array<{ collection: string; operation: string; id: string }> = [];
+    const rejected: Array<{ collection: string; operation: string; id: string; reason: string }> = [];
 
-  for (const action of parsed.data.actions) {
-    const collectionName = syncCollectionMap[action.collection];
-    const docRef = db.collection(collectionName).doc(action.id);
-    const payload = (action.payload ?? {}) as Record<string, unknown>;
-    const payloadVacaId = typeof payload.vacaId === "string" ? payload.vacaId.trim() : "";
+    for (const action of parsed.data.actions) {
+      const collectionName = syncCollectionMap[action.collection];
+      const docRef = db.collection(collectionName).doc(action.id);
+      const payload = (action.payload ?? {}) as Record<string, unknown>;
+      const payloadVacaId = typeof payload.vacaId === "string" ? payload.vacaId.trim() : "";
 
-    try {
-      if (needsVacaValidation(action.collection)) {
+      try {
+        if (needsVacaValidation(action.collection)) {
+          if (action.operation === "create") {
+            if (!payloadVacaId) {
+              rejected.push({
+                collection: action.collection,
+                operation: action.operation,
+                id: action.id,
+                reason: "vacaId es obligatorio para este modulo.",
+              });
+              continue;
+            }
+
+            const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
+            if (!validVaca) {
+              rejected.push({
+                collection: action.collection,
+                operation: action.operation,
+                id: action.id,
+                reason: "La vaca referenciada no existe o no pertenece al usuario.",
+              });
+              continue;
+            }
+          }
+
+          if (action.operation === "update" && payloadVacaId) {
+            const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
+            if (!validVaca) {
+              rejected.push({
+                collection: action.collection,
+                operation: action.operation,
+                id: action.id,
+                reason: "La vaca referenciada no existe o no pertenece al usuario.",
+              });
+              continue;
+            }
+          }
+        }
+
         if (action.operation === "create") {
-          if (!payloadVacaId) {
-            rejected.push({
-              collection: action.collection,
-              operation: action.operation,
-              id: action.id,
-              reason: "vacaId es obligatorio para este modulo.",
-            });
-            continue;
-          }
+          await docRef.set({
+            ...payload,
+            ownerUid: uid,
+            isDeleted: false,
+            deletedAt: null,
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
 
-          const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
-          if (!validVaca) {
-            rejected.push({
-              collection: action.collection,
-              operation: action.operation,
-              id: action.id,
-              reason: "La vaca referenciada no existe o no pertenece al usuario.",
-            });
-            continue;
-          }
+          applied.push({ collection: action.collection, operation: action.operation, id: action.id });
+          continue;
         }
 
-        if (action.operation === "update" && payloadVacaId) {
-          const validVaca = await isOwnedActiveVaca(uid, payloadVacaId);
-          if (!validVaca) {
-            rejected.push({
-              collection: action.collection,
-              operation: action.operation,
-              id: action.id,
-              reason: "La vaca referenciada no existe o no pertenece al usuario.",
-            });
-            continue;
-          }
+        const existingDoc = await docRef.get();
+        if (!existingDoc.exists || existingDoc.data()?.ownerUid !== uid) {
+          rejected.push({
+            collection: action.collection,
+            operation: action.operation,
+            id: action.id,
+            reason: "Documento no encontrado o sin permisos.",
+          });
+          continue;
         }
-      }
 
-      if (action.operation === "create") {
-        await docRef.set({
-          ...payload,
-          ownerUid: uid,
-          isDeleted: false,
-          deletedAt: null,
-          createdAt: FieldValue.serverTimestamp(),
+        if (action.operation === "update") {
+          await docRef.set({
+            ...payload,
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+
+          applied.push({ collection: action.collection, operation: action.operation, id: action.id });
+          continue;
+        }
+
+        await docRef.update({
+          isDeleted: true,
+          deletedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-
+        });
         applied.push({ collection: action.collection, operation: action.operation, id: action.id });
-        continue;
-      }
-
-      const existingDoc = await docRef.get();
-      if (!existingDoc.exists || existingDoc.data()?.ownerUid !== uid) {
+      } catch (_error) {
         rejected.push({
           collection: action.collection,
           operation: action.operation,
           id: action.id,
-          reason: "Documento no encontrado o sin permisos.",
+          reason: "No se pudo aplicar la accion.",
         });
-        continue;
       }
-
-      if (action.operation === "update") {
-        await docRef.set({
-          ...payload,
-          updatedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-
-        applied.push({ collection: action.collection, operation: action.operation, id: action.id });
-        continue;
-      }
-
-      await docRef.update({
-        isDeleted: true,
-        deletedAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      applied.push({ collection: action.collection, operation: action.operation, id: action.id });
-    } catch (_error) {
-      rejected.push({
-        collection: action.collection,
-        operation: action.operation,
-        id: action.id,
-        reason: "No se pudo aplicar la accion.",
-      });
     }
-  }
 
-  return successResponse(res, {
-    appliedCount: applied.length,
-    rejectedCount: rejected.length,
-    applied,
-    rejected,
-  });
+    return successResponse(res, {
+      appliedCount: applied.length,
+      rejectedCount: rejected.length,
+      applied,
+      rejected,
+    });
+  } catch (error) {
+    console.error("Sync push error:", error);
+    return errorResponse(res, 500, "INTERNAL_ERROR", "Error al procesar sincronizacion.", { error: String(error) });
+  }
 });
