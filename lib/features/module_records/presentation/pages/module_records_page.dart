@@ -32,7 +32,7 @@ class ModuleRecordsPage extends StatefulWidget {
   State<ModuleRecordsPage> createState() => _ModuleRecordsPageState();
 }
 
-class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
+class _ModuleRecordsPageState extends State<ModuleRecordsPage> with WidgetsBindingObserver {
   bool _isLoading = true;
   String? _error;
   List<ModuleRecord> _records = const [];
@@ -53,8 +53,24 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
     _refreshSyncStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      // Recargar datos cuando la app recupera foco
+      _load();
+      _refreshSyncStatus();
+    }
   }
 
   Future<void> _refreshSyncStatus() async {
@@ -119,11 +135,14 @@ class _ModuleRecordsPageState extends State<ModuleRecordsPage> {
         }
       });
     } catch (_) {
+      // Si falla sin internet, intenta cargar desde caché local
+      debugPrint('Failed to load from server, trying cache...');
       if (!mounted) {
         return;
       }
+      
       setState(() {
-        _error = 'No se pudieron cargar datos del modulo.';
+        _error = 'No se pudo conectar. Mostrando datos en caché.';
       });
     } finally {
       if (mounted) {

@@ -77,11 +77,10 @@ class ModuleRecordsRepositoryImpl implements ModuleRecordsRepository {
       await cacheStore.replaceAll(resourcePath, mapped);
       return mapped;
     } catch (_) {
+      // Sin internet o error → usar caché local como fallback
       final cached = await cacheStore.list(resourcePath);
-      if (cached.isNotEmpty) {
-        return cached;
-      }
-      rethrow;
+      // Siempre retorna caché, aunque esté vacío (offline-first)
+      return cached;
     }
   }
 
