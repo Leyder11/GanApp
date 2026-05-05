@@ -1,35 +1,44 @@
 name: Deploy to Firebase
- 
+
 on:
   push:
     branches:
       - main
- 
+
 jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
- 
+
     steps:
       - name: Checkout código
         uses: actions/checkout@v3
- 
+
       - name: Instalar Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
           channel: 'stable'
- 
-      - name: Instalar dependencias
+
+      - name: Instalar dependencias Flutter
         run: flutter pub get
- 
+
       - name: Compilar APK
         run: flutter build apk --release
- 
-      - name: Deploy a Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
+
+      - name: Instalar Node.js
+        uses: actions/setup-node@v3
         with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_TOKEN }}
-          projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
-          channelId: live
+          node-version: '18'
+
+      - name: Instalar dependencias Functions
+        run: cd functions && npm install
+
+      - name: Instalar Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy Functions a Firebase
+        run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
