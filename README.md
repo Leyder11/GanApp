@@ -88,3 +88,8 @@ Requisitos iOS:
 
 - Los reportes/fichas PDF se generan localmente.
 - Se guardan en almacenamiento de la app (`documents/reports`) y luego se pueden compartir o imprimir.
+
+
+## Estado del pipeline
+
+![Deploy to Firebase](https://github.com/Leyder11/GanApp/actions/workflows/deploy.yml/badge.svg)
