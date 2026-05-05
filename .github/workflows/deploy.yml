@@ -44,3 +44,15 @@ jobs:
         run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_ID }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+
+      - name: Resumen del deploy
+        if: success()
+        run: |
+          echo "## Deploy exitoso" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Proyecto | ${{ secrets.FIREBASE_PROJECT_ID }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Rama | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Ejecutado por | ${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Fecha | $(date '+%Y-%m-%d %H:%M:%S') |" >> $GITHUB_STEP_SUMMARY
