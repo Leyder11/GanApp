@@ -88,4 +88,11 @@ class SyncLocalStore {
     );
     return count ?? 0;
   }
+
+  Future<void> close() async {
+  await _database?.close();
+  _database = null;
+  }
+
+  
 }
